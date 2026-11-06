@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allocazione robusta – {{ cliente }}</title>
+{% if plotly_inline %}<script>{{ plotly_inline | safe }}</script>{% else %}<script src="{{ plotly_cdn }}"></script>{% endif %}
+<style>
+  :root { --blu: #1f4e79; --grigio: #595959; --chiaro: #f2f5f9; }
+  body { font-family: "Segoe UI", Helvetica, Arial, sans-serif; color: #222; max-width: 1000px;
+         margin: 0 auto; padding: 32px 16px 60px; line-height: 1.5; background: #fff; }
+  header { border-bottom: 3px solid var(--blu); padding-bottom: 12px; margin-bottom: 24px; }
+  h1 { color: var(--blu); margin: 0 0 4px; font-size: 1.7rem; }
+  h2 { color: var(--blu); font-size: 1.2rem; margin-top: 38px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 1rem; margin: 22px 0 6px; }
+  .sub { color: var(--grigio); font-size: .92rem; }
+  .kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 16px 0; }
+  .kpi div { background: var(--chiaro); border-radius: 8px; padding: 12px 14px; }
+  .kpi b { display: block; font-size: 1.4rem; color: var(--blu); }
+  .kpi span { font-size: .78rem; color: var(--grigio); text-transform: uppercase; letter-spacing: .03em; }
+  .kpi small { display: block; font-size: .8rem; color: var(--grigio); }
+  .esito { border-left: 5px solid; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+  .esito.ok { border-color: #0ca30c; background: #eef8ee; }
+  .esito.attenzione { border-color: #fab219; background: #fff8e8; }
+  .esito b::before { margin-right: 6px; }
+  .esito.ok b::before { content: "✓"; color: #0ca30c; }
+  .esito.attenzione b::before { content: "!"; color: #b07800; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 10px 0; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid #e5e5e5; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: var(--blu); color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  tr.forte td { font-weight: 600; }
+  td.neg { color: #c0392b; } td.pos { color: #1e7d32; }
+  .scroll { overflow-x: auto; }
+  .scroll table { white-space: nowrap; }
+  .grafico { margin: 14px 0; overflow: hidden; }
+  .note { font-size: .8rem; color: var(--grigio); background: var(--chiaro); padding: 12px 14px; border-radius: 6px; }
+  ul { padding-left: 20px; }
+  @media print { .grafico { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Allocazione robusta del portafoglio</h1>
+  <div class="sub">Patrimonio di <b>{{ importo }}</b> · preparata per <b>{{ cliente }}</b> · {{ oggi }} · dati mensili dal {{ periodo }}</div>
+</header>
+
+<h2>Sintesi</h2>
+<div class="esito {{ esito }}"><b>Esito</b> {{ sintesi }}</div>
+<div class="kpi">
+  {% for label, value, nota in kpi %}<div><span>{{ label }}</span><b>{{ value }}</b><small>{{ nota }}</small></div>{% endfor %}
+</div>
+<div class="scroll">
+<table>
+  <tr><th>Asset</th><th>Peso attuale</th><th>Peso proposto</th><th>Variazione</th><th>Controvalore proposto</th><th>Operazione</th></tr>
+  {% for r in allocazione %}<tr><td>{{ r.nome }}</td><td>{{ r.att }}</td><td>{{ r.pro }}</td><td>{{ r.var }}</td><td>{{ r.eur }}</td><td class="{{ r.segno }}">{{ r.op }}</td></tr>{% endfor %}
+</table>
+</div>
+{% if grafici.operazioni %}<div class="grafico">{{ grafici.operazioni | safe }}</div>{% endif %}
+<p class="sub">Vincoli del mandato rispettati dal portafoglio proposto: {{ vincoli | join("; ") }}. Ogni operazione costa
+{{ costi_pb }} punti base: l'ottimizzatore li mette sul piatto della bilancia e sposta un asset solo quando il
+beneficio atteso supera il costo, per questo alcune posizioni restano invariate.</p>
+
+<h2>Perché non basta la storia</h2>
+<p>La media-varianza di Markowitz ha bisogno dei rendimenti attesi, ed è proprio la stima che i dati danno peggio:
+con {{ mesi }} mesi di storia l'errore sulla media di un azionario è di qualche punto percentuale all'anno, tanto
+quanto il rendimento stesso. Il modello di <b>Black-Litterman</b> parte da un punto di vista più solido,
+l'<b>equilibrio di mercato</b>: i rendimenti per cui il portafoglio di mercato sarebbe ottimo, ricavati dai pesi
+del mercato e dalla covarianza (avversione al rischio {{ avversione }}). Sopra l'equilibrio si innestano le view
+del consulente, ciascuna con il proprio grado di fiducia.</p>
+<div class="grafico">{{ grafici.rendimenti | safe }}</div>
+<div class="scroll">
+<table>
+  <tr><th>Asset</th><th>Peso di mercato</th><th>Volatilità</th><th>Media storica</th><th>Equilibrio</th><th>Black-Litterman</th></tr>
+  {% for r in rendimenti %}<tr><td>{{ r.nome }}</td><td>{{ r.mercato }}</td><td>{{ r.vol }}</td><td>{{ r.storico }}</td><td>{{ r.eq }}</td><td>{{ r.bl }}</td></tr>{% endfor %}
+</table>
+</div>
+<p class="sub">Rendimenti annui totali, tasso privo di rischio {{ rf }}. La covarianza è stimata con lo shrinkage di
+Ledoit-Wolf verso la correlazione costante (intensità {{ shrink }}), che riduce l'errore di stima della matrice
+campionaria.</p>
+
+<h2>Le view del consulente</h2>
+<p>Una view può essere <b>assoluta</b> («i governativi renderanno il 3,2%») o <b>relativa</b> («l'Europa farà meglio
+degli Stati Uniti»). La fiducia segue il metodo di <b>Idzorek</b>: con una fiducia del 40% il portafoglio si sposta
+del 40% della distanza tra l'equilibrio e il portafoglio che si avrebbe credendo alla view con certezza. Il
+rendimento a posteriori è quindi un compromesso tra il mercato e il consulente, e tiene conto delle correlazioni:
+una view sull'Europa sposta anche le attese sugli asset che le sono legati.</p>
+<div class="scroll">
+<table>
+  <tr><th>View</th><th>Fiducia</th><th>Indicato</th><th>Implicito nell'equilibrio</th><th>A posteriori</th></tr>
+  {% for v in viste %}<tr><td>{{ v.descr }}</td><td>{{ v.fiducia }}</td><td>{{ v.indicato }}</td><td>{{ v.eq }}</td><td>{{ v.post }}</td></tr>{% endfor %}
+</table>
+</div>
+
+<h2>Sei metodi a confronto</h2>
+<p>Oltre al portafoglio proposto, il report costruisce con gli stessi dati altri cinque portafogli: il mercato, la
+media-varianza classica con le stime storiche, la sua versione <b>ricampionata</b> (Michaud), la <b>Hierarchical
+Risk Parity</b> (López de Prado) e il <b>minimo CVaR</b> (Rockafellar-Uryasev). Tutti, tranne il mercato e HRP che non
+usano un ottimizzatore, rispettano i vincoli del mandato. L'<b>equivalente certo</b> (rendimento atteso meno
+δ/2 · varianza) è la grandezza che l'ottimizzatore massimizza: dice quanto vale il portafoglio per un investitore
+con l'avversione al rischio indicata. Per confrontarli in modo equo il rendimento e la volatilità
+attesi sono calcolati per tutti con le stime di Black-Litterman; CVaR e perdita massima sono storici.</p>
+<div class="grafico">{{ grafici.allocazioni | safe }}</div>
+<div class="scroll">
+<table>
+  <tr><th>Portafoglio</th>{% for c in colonne %}<th>{{ c }}</th>{% endfor %}</tr>
+  {% for r in confronto %}<tr{% if r.forte %} class="forte"{% endif %}><td>{{ r.nome }}</td>{% for v in r.valori %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}
+</table>
+</div>
+<p class="sub"><b>Asset effettivi</b>: inverso della somma dei pesi al quadrato (9 con pesi uguali su 9 asset, 1 se tutto
+è in un solo asset). <b>Rapporto di diversificazione</b>: media ponderata delle volatilità diviso volatilità del
+portafoglio; più è alto, più le correlazioni lavorano a favore.</p>
+<div class="grafico">{{ grafici.frontiere | safe }}</div>
+<div class="grafico">{{ grafici.contributi | safe }}</div>
+{% if quota_azioni %}<p>Il peso non dice quanto rischio porta un asset. Nel portafoglio proposto l'azionario è il
+{{ quota_azioni[0] }} del capitale ma il {{ quota_azioni[1] }} del rischio, perché ha una volatilità tre o quattro volte
+quella delle obbligazioni.</p>{% endif %}
+
+<h2>Quanto è fragile l'ottimizzazione classica</h2>
+<p>Se le stime sono incerte, lo sono anche i pesi ottimi. Il grafico ripete l'ottimizzazione media-varianza su
+{{ n_sim }} storie alternative, tutte compatibili con le stesse stime e lunghe quanto il campione: lo stesso asset
+passa da zero al massimo consentito a seconda della storia estratta (la deviazione standard dei pesi arriva a
+{{ disp_max }} per {{ disp_asset }}). La <b>media-varianza ricampionata</b> usa la media di questi pesi: è più
+diversificata e cambia meno quando arrivano nuovi dati.</p>
+<div class="grafico">{{ grafici.instabilita | safe }}</div>
+
+<h2>Diversificare senza stimare i rendimenti: HRP</h2>
+<p>La Hierarchical Risk Parity non usa i rendimenti attesi e non inverte la matrice di covarianza, i due passaggi
+che amplificano gli errori di stima. Raggruppa gli asset per somiglianza, li dispone in modo che i simili stiano
+vicini e divide il capitale tra i gruppi in proporzione inversa al loro rischio. Il risultato è un portafoglio a
+basso rischio molto stabile nel tempo; senza vincoli tende però a sovrappesare gli asset meno volatili (qui
+{{ hrp_max }} con il {{ hrp_max_peso }}), quindi va letto come riferimento di diversificazione più che come proposta
+per un mandato bilanciato.</p>
+<div class="grafico">{{ grafici.dendrogramma | safe }}</div>
+<div class="grafico">{{ grafici.correlazioni | safe }}</div>
+
+<h2>Rischio di coda: minimo CVaR</h2>
+<p>La volatilità tratta allo stesso modo i mesi molto buoni e quelli molto cattivi. Il <b>CVaR {{ lv }}</b> guarda solo
+ai secondi: è la perdita media nel 5% dei mesi peggiori. Minimizzarlo sugli scenari storici è un problema di
+programmazione lineare (Rockafellar e Uryasev), che coglie le code pesanti e le correlazioni che salgono nelle
+crisi. Il portafoglio a minimo CVaR nel rispetto del mandato ha un VaR mensile di {{ cvar_var }} e un CVaR di
+{{ cvar_cvar }}.</p>
+<div class="grafico">{{ grafici.cvar | safe }}</div>
+
+{% if backtest %}
+<h2>Backtest walk-forward</h2>
+<p>Ogni trimestre, dal {{ inizio_bt }}, ciascun metodo ha scelto i pesi con i soli dati disponibili in quel momento
+(almeno cinque anni di storia), con gli stessi vincoli del mandato e {{ costi_pb }} punti base di costi su ogni
+operazione. Nel backtest le view di Black-Litterman sono generate in modo sistematico dal momentum a 12 mesi, con
+fiducia del 25%, perché le view del consulente non esistono data per data; l'ottimizzazione tiene conto dei costi e
+limita la rotazione al 25% per trimestre. Il CVaR è minimizzato al 90% perché le finestre più brevi hanno pochi mesi
+nella coda al 95%.</p>
+<div class="grafico">{{ grafici.backtest | safe }}</div>
+<div class="scroll">
+<table>
+  <tr><th>Strategia</th>{% for c in colonne_bt %}<th>{{ c }}</th>{% endfor %}</tr>
+  {% for r in backtest %}<tr{% if r.nome == migliore %} class="forte"{% endif %}><td>{{ r.nome }}</td>{% for v in r.valori %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}
+</table>
+</div>
+<p class="sub">In grassetto la strategia con lo Sharpe più alto. <b>Rotazione annua</b>: quota del portafoglio
+scambiata in un anno. <b>Instabilità dei pesi</b>: variazione media dei pesi da un ribilanciamento al successivo.</p>
+<div class="grafico">{{ grafici.drawdown | safe }}</div>
+<div class="grafico">{{ grafici.pesi_tempo | safe }}</div>
+{% endif %}
+
+<h2>Metodologia</h2>
+<ul class="sub">
+  <li><b>Covarianza</b>: shrinkage di Ledoit-Wolf (2004) verso la matrice a correlazione costante, intensità stimata dai dati.</li>
+  <li><b>Black-Litterman</b>: rendimenti di equilibrio π = δΣw<sub>mercato</sub>, incertezza dell'equilibrio τ = {{ tau }},
+    incertezza delle view dalla fiducia di Idzorek in forma chiusa (Walters), media a posteriori
+    μ = π + τΣP'(PτΣP' + Ω)⁻¹(Q − Pπ) e covarianza a posteriori.</li>
+  <li><b>Ottimizzazione con costi</b>: massimizza μ'w − δ/2·w'Σw − c·Σ|Δw| con acquisti e vendite come variabili
+    esplicite, vincoli per asset e per classe, limite di rotazione; SLSQP con gradienti analitici.</li>
+  <li><b>Ricampionamento</b>: {{ n_sim }} campioni gaussiani di {{ mesi }} mesi dalle stime, ottimizzazione su ciascuno, media dei pesi.</li>
+  <li><b>HRP</b>: distanza √(½(1 − ρ)), clustering a collegamento singolo, quasi-diagonalizzazione e bisezione ricorsiva.</li>
+  <li><b>Minimo CVaR</b>: programma lineare di Rockafellar-Uryasev sugli scenari storici, risolto con HiGHS.</li>
+</ul>
+{% if nota %}<p class="note">{{ nota }}</p>{% endif %}
+<p class="note">Documento a scopo illustrativo. Le stime si basano su dati passati e su ipotesi del consulente, non
+costituiscono una previsione né una garanzia di rendimento; il backtest non considera imposte né la liquidità degli
+strumenti. La consulenza va integrata con la valutazione di adeguatezza prevista dalla MiFID II.</p>
+</body>
+</html>

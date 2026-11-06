@@ -1,0 +1,35 @@
+{
+  "cliente": "Famiglia Bianchi",
+  "importo": 750000,
+  "prezzi": "../data/prezzi_esempio.csv",
+  "risk_free": 0.025,
+  "avversione": 2.5,
+  "tau": 0.05,
+  "costi": 0.0015,
+  "rotazione_massima": 0.30,
+  "alfa": 0.95,
+  "pesi_mercato": {
+    "Azionario USA": 0.30, "Azionario Europa": 0.09, "Azionario Giappone": 0.04, "Azionario Emergenti": 0.06,
+    "Governativi EUR": 0.22, "Corporate EUR": 0.12, "High Yield": 0.05, "Oro": 0.07, "Immobiliare quotato": 0.05
+  },
+  "pesi_attuali": {
+    "Governativi EUR": 0.40, "Corporate EUR": 0.20, "Azionario Europa": 0.30, "Azionario USA": 0.10
+  },
+  "vincoli": {
+    "minimo": 0.0,
+    "massimo": 0.30,
+    "gruppi": {
+      "Azionario": {"asset": ["Azionario USA", "Azionario Europa", "Azionario Giappone", "Azionario Emergenti"], "min": 0.25, "max": 0.50},
+      "Obbligazionario": {"asset": ["Governativi EUR", "Corporate EUR", "High Yield"], "min": 0.40, "max": 0.70},
+      "Alternativi": {"asset": ["Oro", "Immobiliare quotato"], "min": 0.0, "max": 0.10}
+    }
+  },
+  "viste": [
+    {"tipo": "relativa", "lunghi": ["Azionario Europa"], "corti": ["Azionario USA"], "rendimento": 0.015, "fiducia": 0.4,
+     "descrizione": "L'Europa farà meglio degli Stati Uniti di 1,5% all'anno"},
+    {"tipo": "assoluta", "asset": "Governativi EUR", "rendimento": 0.032, "fiducia": 0.6,
+     "descrizione": "I governativi EUR renderanno il 3,2% all'anno"},
+    {"tipo": "assoluta", "asset": "Oro", "rendimento": 0.05, "fiducia": 0.25,
+     "descrizione": "L'oro renderà il 5% all'anno"}
+  ]
+}
