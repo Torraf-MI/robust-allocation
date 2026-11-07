@@ -128,8 +128,8 @@ la versione ricampionata è molto più diversificata (6,7 asset effettivi contro
 
 ![Backtest](docs/img/backtest.png)
 
-La media-varianza con le stime storiche ruota un quarto del portafoglio ogni anno e ottiene il risultato
-peggiore: insegue i rendimenti passati. Black-Litterman, ancorato all'equilibrio e consapevole dei costi, ha lo
+La media-varianza con le stime storiche ruota un quarto del portafoglio ogni anno e fa peggio del semplice
+portafoglio di mercato: insegue i rendimenti passati. Black-Litterman, ancorato all'equilibrio e consapevole dei costi, ha lo
 Sharpe più alto con metà della rotazione. HRP e minimo CVaR dimezzano la perdita massima: sono la scelta giusta per
 chi dà priorità alla protezione, al prezzo di un rendimento più basso.
 
